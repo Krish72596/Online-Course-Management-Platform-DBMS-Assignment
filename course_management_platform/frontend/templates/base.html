@@ -18,8 +18,10 @@
             </div>
             <ul class="navbar-menu">
                 {% if session.get('token') %}
-                    {% if session.get('role') == 'Instructor' %}
+                    {% if (session.get('role') or '').lower() == 'instructor' %}
                         <li><a href="/instructor/dashboard">Instructor Dashboard</a></li>
+                    {% elif (session.get('role') or '').lower() == 'administrator' %}
+                        <li><a href="/admin/dashboard">Admin Dashboard</a></li>
                     {% else %}
                         <li><a href="/dashboard">Dashboard</a></li>
                     {% endif %}
