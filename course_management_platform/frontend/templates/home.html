@@ -8,8 +8,10 @@
         <h1 style="font-size:36px;">Course Management Platform</h1>
         <p style="color:var(--text-muted); margin:12px 0 20px;">Discover high-quality courses, learn at your pace, and advance your career.</p>
         <div style="display:flex; gap:12px; justify-content:center;">
+            {% if not session.get('token') %}
             <a href="/login" class="btn btn-primary">Login</a>
             <a href="/register" class="btn btn-secondary">Register</a>
+            {% endif %}
             <a href="#courses" class="btn btn-success">Browse Courses</a>
         </div>
     </div>

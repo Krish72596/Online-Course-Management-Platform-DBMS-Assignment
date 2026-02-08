@@ -12,9 +12,6 @@ from app.routers import content
 
 from app.routers import analytics
 
-# Admin audit middleware temporarily disabled due to migration pending
-# from app.core.admin_middleware import AdminAuditMiddleware
-
 from app.routers import admin
 from app.routers import moderation
 
@@ -29,9 +26,6 @@ app.include_router(content.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
 app.include_router(moderation.router)
-
-# Temporarily disabled - needs migration update for admin_audit table foreign key
-# app.add_middleware(AdminAuditMiddleware)
 
 @app.get("/")
 def root():
