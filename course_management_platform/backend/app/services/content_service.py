@@ -32,7 +32,7 @@ def upload_content_service(
     # INSTRUCTOR OWNERSHIP CHECK
     # --------------------------------------------------------
 
-    if current_user["role"] == Role.INSTRUCTOR.value:
+    if (current_user.get("role", "").strip().lower() == Role.INSTRUCTOR.value.lower()):
 
         teaching = get_teaching_assignment(
             db,

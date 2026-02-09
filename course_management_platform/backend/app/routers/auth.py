@@ -53,7 +53,7 @@ def login(
 
 # Get Current User
 @router.get("/me", response_model=UserResponse)
-def get_current_user(
+def get_current_user_endpoint(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
@@ -75,9 +75,15 @@ def get_current_user(
             detail="User not found"
         )
 
-    return {
+    response = {
         "user_id": user.user_id,
         "name": user.name,
         "email": user.email,
         "role": user.role
     }
+    
+    # Include admin_level if present in JWT payload
+    if payload.get("admin_level"):
+        response["admin_level"] = payload.get("admin_level")
+
+    return response

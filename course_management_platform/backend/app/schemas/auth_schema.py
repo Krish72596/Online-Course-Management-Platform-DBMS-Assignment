@@ -54,7 +54,7 @@ class RegisterRequest(BaseModel):
     # ADMINISTRATOR FIELDS (OPTIONAL)
     # --------------------------------------------------------
 
-    admin_level: Optional[str] = None
+    admin_level: Optional[str] = Field(default="Junior", description="Junior or Senior")
 
     assigned_since: Optional[date] = None
 
@@ -76,6 +76,7 @@ class TokenResponse(BaseModel):
     token_type: str = "Bearer"
     user_id: int
     role: str
+    admin_level: str = None  # Optional - only for admins
 
 # User Response Schema
 class UserResponse(BaseModel):
@@ -83,6 +84,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     role: str
+    admin_level: str = None  # Optional - only for admins
 
     class Config:
         orm_mode = True

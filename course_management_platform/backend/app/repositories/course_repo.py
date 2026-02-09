@@ -37,7 +37,24 @@ def create_course(db: Session, data: dict) -> Course:
 
 
 def get_all_courses(db: Session):
-    return db.query(Course).all()
+    return db.query(Course).filter(
+        Course.approval_status == 'Approved'
+    ).all()
+
+
+def get_approved_courses(db: Session):
+    """Get only approved courses"""
+    return db.query(Course).filter(
+        Course.approval_status == 'Approved'
+    ).all()
+
+
+def get_pending_courses_by_instructor(db: Session, instructor_user_id: int):
+    """Get courses pending approval created by specific instructor"""
+    return db.query(Course).filter(
+        Course.created_by == instructor_user_id,
+        Course.approval_status == 'Pending'
+    ).all()
 
 
 def get_course_by_id(db: Session, course_id: int):

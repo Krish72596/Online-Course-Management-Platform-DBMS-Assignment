@@ -180,10 +180,20 @@ def login_user(db: Session, email: str, password: str):
         if not admin_record:
             raise HTTPException(
                 status_code=500,
-                detail="Admin record missing"
+                detail="Admin record missing. Contact system administrator."
             )
-
-        token_data["admin_level"] = admin_record.admin_level
+        
+        # Get admin_level, default to "Junior" if not set
+        admin_level = (admin_record.admin_level or "Junior").strip()
+        
+        # Validate admin_level is one of the allowed values
+        if admin_level not in ["Junior", "Senior"]:
+            raise HTTPException(
+                status_code=500,
+                detail="Invalid admin level in system. Contact system administrator."
+            )
+        
+        token_data["admin_level"] = admin_level
 
     # --------------------------------------------------------
     # CREATE TOKEN

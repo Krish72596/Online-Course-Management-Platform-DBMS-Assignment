@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine
 from app.utils.db_utils import sync_postgres_serial_sequences
@@ -19,6 +20,22 @@ from app.routers import admin
 from app.routers import moderation
 
 app = FastAPI()
+
+# ============================================================
+# CORS MIDDLEWARE
+# ============================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")

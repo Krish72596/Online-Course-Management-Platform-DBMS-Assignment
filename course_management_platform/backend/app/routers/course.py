@@ -6,20 +6,25 @@ from app.schemas.course_schema import (
     UniversityCreate,
     UniversityResponse,
     CourseCreate,
-    CourseResponse
+    CourseResponse,
+    InstructorCourseCreate,
+    InstructorCourseResponse
 )
 from app.services.course_service import (
     create_university_service,
     get_all_universities_service,
     create_course_service,
     get_all_courses_service,
-    get_course_by_id_service
-    , get_university_by_course_service
+    get_course_by_id_service,
+    get_university_by_course_service,
+    create_instructor_course_service,
+    get_instructor_pending_courses_service
 )
 
 # 🔐 Role Guards
 from app.core.role_guards import require_role
 from app.core.roles import Role
+from app.core.dependencies import get_current_user
 
 # Router Config
 router = APIRouter(
@@ -106,3 +111,36 @@ def get_university_by_course(
     db: Session = Depends(get_db)
 ):
     return get_university_by_course_service(db, course_id)
+
+
+# ------------------------------------------------------------
+# Create Course → Instructor Only (with Pending approval)
+# ------------------------------------------------------------
+@router.post(
+    "/courses/instructor/create",
+    response_model=InstructorCourseResponse
+)
+def create_instructor_course(
+    payload: InstructorCourseCreate,
+    db: Session = Depends(get_db),
+    instructor = Depends(require_role([Role.INSTRUCTOR])),
+    current_user = Depends(get_current_user)
+):
+    """Create a course as an instructor (automatically set to Pending approval)"""
+    return create_instructor_course_service(db, payload, current_user['user_id'])
+
+
+# ------------------------------------------------------------
+# Get Instructor's Pending Courses
+# ------------------------------------------------------------
+@router.get(
+    "/courses/instructor/pending",
+    response_model=list[InstructorCourseResponse]
+)
+def get_instructor_pending(
+    db: Session = Depends(get_db),
+    instructor = Depends(require_role([Role.INSTRUCTOR])),
+    current_user = Depends(get_current_user)
+):
+    """Get courses pending approval created by current instructor"""
+    return get_instructor_pending_courses_service(db, current_user['user_id'])
