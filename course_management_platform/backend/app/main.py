@@ -15,9 +15,17 @@ from app.routers import teaching
 from app.routers import content
 
 from app.routers import analytics
+from app.routers import analyst
 
 from app.routers import admin
 from app.routers import moderation
+from app.routers import quiz
+import uuid
+from datetime import datetime
+
+# server instance id used to detect restarts
+SERVER_INSTANCE_ID = str(uuid.uuid4())
+SERVER_STARTED_AT = datetime.utcnow().isoformat()
 
 app = FastAPI()
 
@@ -54,8 +62,16 @@ app.include_router(enrollment.router)
 app.include_router(teaching.router)
 app.include_router(content.router)
 app.include_router(analytics.router)
+app.include_router(analyst.router)
 app.include_router(admin.router)
 app.include_router(moderation.router)
+app.include_router(quiz.router)
+
+
+@app.get("/server/instance")
+def server_instance():
+    """Return current server instance id and start time."""
+    return {"instance_id": SERVER_INSTANCE_ID, "started_at": SERVER_STARTED_AT}
 
 @app.get("/")
 def root():

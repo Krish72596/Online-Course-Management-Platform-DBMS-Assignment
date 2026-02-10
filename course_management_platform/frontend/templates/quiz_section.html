@@ -1,0 +1,274 @@
+<!-- Quiz Section -->
+<div id="quiz-section" class="quiz-management-section" style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+    <h4 style="margin-top: 0; color: #28a745;">
+        <i class="fas fa-check-circle"></i> Final Test / Quiz
+    </h4>
+    
+    <div id="quiz-status" style="margin-bottom: 15px; padding: 10px; background-color: #e8f5e9; border-radius: 4px; display: none;">
+        <p id="quiz-status-text" style="margin: 0; color: #2e7d32;"></p>
+    </div>
+    
+    <!-- Add Questions Section -->
+    <div id="questions-container" style="margin-top: 20px;">
+        <h5>Quiz Questions</h5>
+        <div id="questions-list" style="margin-bottom: 15px;"></div>
+        
+        <!-- Add Question Form -->
+        <div id="add-question-form" style="background-color: white; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+            <h6>Add New Question</h6>
+            
+            <div class="form-group">
+                <label for="question-text">Question *</label>
+                <textarea 
+                    id="question-text" 
+                    class="form-control" 
+                    placeholder="Enter your question here"
+                    rows="3"
+                    required
+                ></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="question-type">Question Type</label>
+                <select id="question-type" class="form-control">
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="true_false">True/False</option>
+                </select>
+            </div>
+            
+            <div id="options-container">
+                <div class="form-group">
+                    <label for="option-a">Option A *</label>
+                    <input type="text" id="option-a" class="form-control" placeholder="Enter option A" required>
+                </div>
+                <div class="form-group">
+                    <label for="option-b">Option B *</label>
+                    <input type="text" id="option-b" class="form-control" placeholder="Enter option B" required>
+                </div>
+                <div class="form-group">
+                    <label for="option-c">Option C</label>
+                    <input type="text" id="option-c" class="form-control" placeholder="Enter option C">
+                </div>
+                <div class="form-group">
+                    <label for="option-d">Option D</label>
+                    <input type="text" id="option-d" class="form-control" placeholder="Enter option D">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="correct-answer">Correct Answer *</label>
+                <select id="correct-answer" class="form-control" required>
+                    <option value="">Select correct option...</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="explanation">Explanation (Optional)</label>
+                <textarea 
+                    id="explanation" 
+                    class="form-control" 
+                    placeholder="Explain why this answer is correct"
+                    rows="2"
+                ></textarea>
+            </div>
+            
+            <button type="button" id="add-question-btn" class="btn btn-success" onclick="addQuizQuestion()">
+                <i class="fas fa-plus"></i> Add Question
+            </button>
+        </div>
+    </div>
+    
+    <!-- Answer Key Section -->
+    <div id="answer-key-section" style="margin-top: 20px; padding: 15px; background-color: white; border-radius: 4px;">
+        <h6>Quiz Answer Key</h6>
+        <p style="font-size: 12px; color: #666;">
+            Enter the answer key in the format: ABCDA... (one letter per question, e.g., "ABCDACBDABCDABC" for 15 questions)
+        </p>
+        <div class="form-group">
+            <label for="answer-key">Answer Key *</label>
+            <input 
+                type="text" 
+                id="answer-key" 
+                class="form-control" 
+                placeholder="e.g., ABCDACBDABCDABC"
+                style="font-family: monospace; font-size: 14px;"
+                required
+            >
+            <small id="answer-key-status" style="color: #666; margin-top: 5px;"></small>
+        </div>
+    </div>
+</div>
+
+<!-- Quiz Section Styles -->
+<style>
+    .quiz-management-section {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    #questions-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .quiz-question-item {
+        background-color: white;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        border-left: 3px solid #007bff;
+    }
+    
+    .quiz-question-item .question-number {
+        font-weight: bold;
+        color: #007bff;
+        margin-bottom: 5px;
+    }
+    
+    .quiz-question-item .question-text {
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+    
+    .quiz-question-item .question-options {
+        font-size: 13px;
+        color: #666;
+        margin-left: 10px;
+    }
+    
+    .quiz-question-item .correct-answer {
+        color: #28a745;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+    
+    .remove-question-btn {
+        float: right;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 18px;
+    }
+</style>
+
+<!-- Quiz Section Scripts -->
+<script>
+let currentQuizId = null;
+let questionsCount = 0;
+
+// Initialize quiz section on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('question-type').addEventListener('change', function() {
+        updateOptionsDisplay();
+    });
+});
+
+function updateOptionsDisplay() {
+    const type = document.getElementById('question-type').value;
+    const optionC = document.getElementById('option-c').parentElement;
+    const optionD = document.getElementById('option-d').parentElement;
+    
+    if (type === 'true_false') {
+        document.getElementById('option-a').value = 'True';
+        document.getElementById('option-b').value = 'False';
+        optionC.style.display = 'none';
+        optionD.style.display = 'none';
+        document.getElementById('option-c').required = false;
+        document.getElementById('option-d').required = false;
+    } else {
+        document.getElementById('option-a').value = '';
+        document.getElementById('option-b').value = '';
+        optionC.style.display = 'block';
+        optionD.style.display = 'block';
+        document.getElementById('option-c').required = false;
+        document.getElementById('option-d').required = false;
+    }
+}
+
+function addQuizQuestion() {
+    const questionText = document.getElementById('question-text').value.trim();
+    const optionA = document.getElementById('option-a').value.trim();
+    const optionB = document.getElementById('option-b').value.trim();
+    const optionC = document.getElementById('option-c').value.trim();
+    const optionD = document.getElementById('option-d').value.trim();
+    const correctAnswer = document.getElementById('correct-answer').value;
+    const explanation = document.getElementById('explanation').value.trim();
+    
+    if (!questionText || !optionA || !optionB || !correctAnswer) {
+        alert('Please fill in all required fields (Question, Options A & B, and Correct Answer).');
+        return;
+    }
+    
+    questionsCount++;
+    
+    // Add to display list
+    const questionsList = document.getElementById('questions-list');
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'quiz-question-item';
+    questionDiv.id = 'question-' + questionsCount;
+    questionDiv.innerHTML = `
+        <span class="remove-question-btn" onclick="removeQuestion(${questionsCount})">×</span>
+        <div class="question-number">Q${questionsCount}</div>
+        <div class="question-text">${escapeHtml(questionText)}</div>
+        <div class="question-options">
+            <div>A) ${escapeHtml(optionA)}</div>
+            <div>B) ${escapeHtml(optionB)}</div>
+            ${optionC ? `<div>C) ${escapeHtml(optionC)}</div>` : ''}
+            ${optionD ? `<div>D) ${escapeHtml(optionD)}</div>` : ''}
+        </div>
+        <div class="correct-answer">✓ Answer: ${correctAnswer}</div>
+        ${explanation ? `<div style="font-size: 12px; margin-top: 5px; color: #777;"><em>Explanation: ${escapeHtml(explanation)}</em></div>` : ''}
+    `;
+    questionsList.appendChild(questionDiv);
+    
+    // Clear form
+    document.getElementById('question-text').value = '';
+    document.getElementById('option-a').value = '';
+    document.getElementById('option-b').value = '';
+    document.getElementById('option-c').value = '';
+    document.getElementById('option-d').value = '';
+    document.getElementById('correct-answer').value = '';
+    document.getElementById('explanation').value = '';
+    
+    // Update answer key status
+    updateAnswerKeyStatus();
+}
+
+function removeQuestion(questionNum) {
+    document.getElementById('question-' + questionNum).remove();
+    questionsCount--;
+    updateAnswerKeyStatus();
+}
+
+function updateAnswerKeyStatus() {
+    const answerKeyInput = document.getElementById('answer-key');
+    const statusText = document.getElementById('answer-key-status');
+    const numQuestions = document.getElementById('questions-list').children.length;
+    
+    if (answerKeyInput.value.length === numQuestions) {
+        statusText.textContent = `✓ Answer key length matches ${numQuestions} questions`;
+        statusText.style.color = '#28a745';
+    } else if (answerKeyInput.value.length === 0) {
+        statusText.textContent = 'Enter answer key (need ' + numQuestions + ' answers)';
+        statusText.style.color = '#666';
+    } else {
+        statusText.textContent = `✗ Answer key length (${answerKeyInput.value.length}) doesn't match questions (${numQuestions})`;
+        statusText.style.color = '#dc3545';
+    }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+document.getElementById('answer-key').addEventListener('input', updateAnswerKeyStatus);
+</script>

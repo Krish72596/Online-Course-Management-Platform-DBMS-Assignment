@@ -6,10 +6,15 @@ from services.course_service import CourseService
 from services.dashboard_service import DashboardService
 from services.instructor_service import InstructorService
 from services.admin_service import AdminService
+from services.analyst_service import AnalystService
 from services.progress_service import ProgressService
 import json
 from datetime import datetime
 import os
+import requests
+
+# Backend URL (used to query server instance)
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://127.0.0.1:8000')
 
 app = Flask(__name__)
 app.config.from_object(DevelopmentConfig)
@@ -52,9 +57,11 @@ def login():
             print(f"DEBUG login - Session set with admin_level: {session.get('admin_level')}")
             
             # Determine redirect based on user role and admin level
-            user_role = response.get('role', '').lower()
-            if user_role == 'instructor':
+            user_role = (response.get('role') or '').lower()
+            if 'instructor' in user_role:
                 redirect_url = '/instructor/dashboard'
+            elif 'analyst' in user_role:
+                redirect_url = '/analyst/dashboard'
             elif user_role == 'administrator':
                 # Check admin level
                 admin_level = (response.get('admin_level') or '').lower()
@@ -69,6 +76,15 @@ def login():
                 redirect_url = '/dashboard'
             
             # Return token in response for client storage
+            # Also store current backend instance id in session so we can detect restarts
+            try:
+                r = requests.get(f"{BACKEND_URL}/server/instance", timeout=2)
+                if r.ok:
+                    data = r.json()
+                    session['server_instance_id'] = data.get('instance_id')
+            except Exception:
+                # Don't block login if instance endpoint is unavailable
+                pass
             return jsonify({
                 'success': True, 
                 'redirect': redirect_url,
@@ -124,15 +140,20 @@ def dashboard():
     if user_role == 'instructor':
         return redirect(url_for('instructor_dashboard'))
     
+    # Check if user is data analyst - redirect to analyst dashboard
+    if user_role == 'data analyst':
+        return redirect(url_for('data_analyst_dashboard'))
+    
     token = session.get('token')
     user_id = session.get('user_id')
     
     # Fetch current user info
     user_success, user_data = DashboardService.get_current_user(token)
     
-    # IMPORTANT: Recompute statistics to ensure fresh data
-    # This updates the StudentStatistics table based on current enrollments
-    DashboardService.recompute_student_stats(user_id, token)
+    # IMPORTANT: Only recompute student statistics for Student role
+    # This avoids attempting to create StudentStatistics for non-student users
+    if session.get('role', '').lower() == 'student':
+        DashboardService.recompute_student_stats(user_id, token)
     
     # Fetch student analytics (now updated)
     analytics_success, analytics = DashboardService.get_student_analytics(user_id, token)
@@ -168,6 +189,45 @@ def dashboard():
     }
     
     return render_template('dashboard.html', user=user_context, stats=stats)
+
+
+# Before each request, verify backend instance hasn't changed; if it has, clear session and force login
+@app.before_request
+def check_server_instance():
+    # Only enforce when user has an active session
+    if 'token' not in session:
+        return None
+
+    # Skip static files
+    if request.path.startswith('/static/'):
+        return None
+
+    # Attempt to query backend instance id
+    try:
+        resp = requests.get(f"{BACKEND_URL}/server/instance", timeout=1.5)
+        if not resp.ok:
+            return None
+        data = resp.json()
+        instance_id = data.get('instance_id')
+        if not instance_id:
+            return None
+        # If session doesn't have stored instance, set it
+        if 'server_instance_id' not in session:
+            session['server_instance_id'] = instance_id
+            return None
+
+        # If instance differs, invalidate session and inform user
+        if session.get('server_instance_id') != instance_id:
+            # clear session and redirect to login with message
+            session.clear()
+            # For AJAX/API requests, return JSON error
+            if request.path.startswith('/api/') or request.is_json:
+                return jsonify({'error': 'Session expired. Please login again.'}), 401
+            flash('Session expired. Please login again.', 'warning')
+            return redirect(url_for('login'))
+    except Exception:
+        # If backend unreachable, don't log out (avoid lockout during short network hiccups)
+        return None
 
 
 @app.route('/enroll-courses')
@@ -496,17 +556,20 @@ def instructor_dashboard():
     if not courses_success:
         instructor_courses = []
     
-    # Calculate active enrollments and completion rate
-    active_enrollments = 0
+    # Calculate total enrollments, active enrollments, and completion rate
     total_enrollments = 0
+    active_enrollments = 0
     completed = 0
     
     if instructor_courses:
         for course in instructor_courses:
-            active_enrollments += course.get('enrollment_count', 0)
+            # Total enrollments across all courses
+            total_enrollments += course.get('enrollment_count', 0)
+            # Completed enrollments across all courses
             completed += course.get('completion_count', 0)
     
-    total_enrollments = active_enrollments
+    # Active enrollments = total - completed
+    active_enrollments = total_enrollments - completed
     completion_rate = int((completed / total_enrollments * 100) if total_enrollments > 0 else 0)
     
     # Prepare chart data
@@ -517,7 +580,7 @@ def instructor_dashboard():
     
     completion_stats_data = {
         'labels': ['Completed', 'In Progress', 'Pending'],
-        'data': [completed, active_enrollments - completed, 0]
+        'data': [completed, active_enrollments, 0]
     }
     
     user_context = {
@@ -530,6 +593,7 @@ def instructor_dashboard():
         stats=stats,
         instructor_courses=instructor_courses,
         pending_courses=pending_courses,
+        total_enrollments=total_enrollments,
         active_enrollments=active_enrollments,
         completion_rate=completion_rate,
         current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -590,6 +654,11 @@ def instructor_create_course():
             course_data['duration'] = data['duration']
         if data.get('university_id') is not None:
             course_data['university_id'] = data['university_id']
+        
+        # Add quiz questions if provided
+        quiz_questions = data.get('quiz_questions', [])
+        if quiz_questions:
+            course_data['quiz_questions'] = quiz_questions
         
         # Log the data being sent (for debugging)
         print(f"[DEBUG] Course data being sent to backend: {course_data}")
@@ -815,6 +884,12 @@ def check_senior_admin():
     admin_level = (session.get('admin_level') or '').lower()
     return admin_level == 'senior'
 
+def check_analyst_role():
+    """Middleware to check if user is Data Analyst"""
+    if 'token' not in session:
+        return False
+    return 'analyst' in (session.get('role') or '').lower()
+
 @app.route('/admin/dashboard')
 def admin_dashboard():
     """Main admin dashboard - Junior Admin OR redirect Senior to their dashboard"""
@@ -878,6 +953,22 @@ def senior_admin_dashboard():
     
     # Just serve the template - all data loading is done client-side
     return render_template('senior_admin_dashboard.html', token=token, user_id=user_id, admin_level=admin_level)
+
+
+@app.route('/analyst/dashboard')
+def data_analyst_dashboard():
+    """Data Analyst Dashboard - Analytics and insights for all platform data"""
+    if not check_analyst_role():
+        return redirect(url_for('login'))
+    
+    token = session.get('token')
+    user_id = session.get('user_id')
+    
+    # Get backend URL for frontend API calls
+    backend_url = os.getenv('BACKEND_URL', 'http://127.0.0.1:8000')
+    
+    # Serve the template with backend URL
+    return render_template('data_analyst_dashboard.html', token=token, user_id=user_id, backend_url=backend_url)
 
 
 @app.route('/admin/courses')

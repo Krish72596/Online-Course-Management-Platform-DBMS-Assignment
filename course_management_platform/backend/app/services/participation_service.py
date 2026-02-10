@@ -6,7 +6,16 @@ from app.repositories import participation_repo
 from app.repositories import user_repo
 from app.repositories import course_repo
 
+from app.models.teaching import Teaching
+
 from app.core.roles import Role
+
+# Import statistics service for updating stats on enrollment/teaching changes
+from app.services.statistics_service import (
+    update_course_statistics_service,
+    update_student_statistics_service,
+    update_instructor_statistics_service
+)
 
 def enroll_student_service(
     db: Session,
@@ -51,11 +60,34 @@ def enroll_student_service(
     if existing:
         raise HTTPException(400, "Student already enrolled")
 
-    return participation_repo.create_enrollment(
+    enrollment = participation_repo.create_enrollment(
         db,
         student_user_id,
         course_id
     )
+    
+    # Update statistics when new enrollment is created
+    try:
+        update_course_statistics_service(db, course_id)
+        update_student_statistics_service(db, student_user_id)
+        
+        # Update statistics for all instructors teaching this course
+        instructors = db.query(Teaching).filter(
+            Teaching.course_id == course_id
+        ).all()
+        
+        for teaching in instructors:
+            try:
+                update_instructor_statistics_service(db, teaching.instructor_user_id)
+            except Exception:
+                # Swallow individual instructor stats errors
+                pass
+                
+    except Exception:
+        # Swallow statistics update errors to not block enrollment
+        pass
+    
+    return enrollment
 
 
 # Completion Update
@@ -191,13 +223,22 @@ def assign_instructor_service(
         )
 
     # Assign instructor
-    return participation_repo.assign_instructor(
+    teaching = participation_repo.assign_instructor(
         db,
         instructor_user_id,
         course_id,
         assigned_date,
         role_in_course
     )
+    
+    # Update statistics when instructor is assigned
+    try:
+        update_instructor_statistics_service(db, instructor_user_id)
+    except Exception:
+        # Swallow statistics update errors to not block assignment
+        pass
+    
+    return teaching
 
 
 def get_public_reviews_by_course_service(
@@ -360,29 +401,63 @@ def submit_assessment_service(
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
 
-    # If answers provided, compute percent score using course.quiz_answer_key
+    # If answers provided, prefer computing score using stored quiz questions
     final_score = None
     if answers is not None:
-        if not course.quiz_answer_key:
-            raise HTTPException(status_code=400, detail="No answer key configured for this course")
-        key = course.quiz_answer_key.strip()
-        if len(key) == 0:
-            raise HTTPException(status_code=400, detail="Answer key is empty")
-
-        # Normalize key and compare
-        key = key.upper()
-        total = len(key)
-        if len(answers) != total:
-            raise HTTPException(status_code=400, detail=f"Answers length {len(answers)} does not match expected {total}")
+        # Try to load quiz and questions for this course
+        quiz = None
+        try:
+            from app.repositories import quiz_repo
+            quiz = quiz_repo.get_quiz_by_course(db, course_id)
+        except Exception:
+            quiz = None
 
         correct = 0
-        for i, ans in enumerate(answers):
-            if ans is None:
-                continue
-            if ans.upper() == key[i]:
-                correct += 1
+        total = 0
+
+        if quiz:
+            questions = quiz_repo.get_questions(db, quiz.quiz_id)
+            total = len(questions)
+            if total == 0:
+                # fallback to answer key when there are no quiz_question rows
+                questions = None
+            else:
+                if len(answers) != total:
+                    raise HTTPException(status_code=400, detail=f"Answers length {len(answers)} does not match expected {total}")
+
+                for i, q in enumerate(questions):
+                    ans = answers[i]
+                    if ans is None:
+                        continue
+                    if not q.correct_answer:
+                        # treat missing correct_answer as non-matching
+                        continue
+                    if ans.upper() == q.correct_answer.upper():
+                        correct += 1
+
+        # If no quiz questions available, fall back to stored course answer key
+        if not quiz or (quiz and (questions is None or len(questions) == 0)):
+            if not course.quiz_answer_key:
+                raise HTTPException(status_code=400, detail="No answer key configured for this course and no quiz questions available")
+            key = course.quiz_answer_key.strip()
+            if len(key) == 0:
+                raise HTTPException(status_code=400, detail="Answer key is empty")
+
+            key = key.upper()
+            total = len(key)
+            if len(answers) != total:
+                raise HTTPException(status_code=400, detail=f"Answers length {len(answers)} does not match expected {total}")
+
+            correct = 0
+            for i, ans in enumerate(answers):
+                if ans is None:
+                    continue
+                if ans.upper() == key[i]:
+                    correct += 1
 
         # Convert to percentage (0-100)
+        if total == 0:
+            raise HTTPException(status_code=400, detail="No questions/answer key available to grade answers")
         final_score = round((correct / total) * 100)
     elif score is not None:
         final_score = int(score)
@@ -415,21 +490,20 @@ def submit_assessment_service(
 
 def _map_score_to_grade(score: int) -> str:
     """
-    Map score to grade.
-    For 15-question quiz (converted to percentage):
-    13–15 (86.67–100%) → A
-    10–12 (66.67–86.66%) → B
-    7–9 (46.67–66.66%) → C
-    4–6 (26.67–46.66%) → D
-    0–3 (0–26.66%) → F
+    Map score (0-100) to grade using percentage thresholds.
+    A: >= 85%
+    B: >= 70%
+    C: >= 50%
+    D: >= 35%
+    F: < 35%
     """
-    if score >= 87:  # 13/15 = 86.67%
+    if score >= 85:
         return "A"
-    elif score >= 67:  # 10/15 = 66.67%
+    elif score >= 70:
         return "B"
-    elif score >= 47:  # 7/15 = 46.67%
+    elif score >= 50:
         return "C"
-    elif score >= 27:  # 4/15 = 26.67%
+    elif score >= 35:
         return "D"
     else:
         return "F"

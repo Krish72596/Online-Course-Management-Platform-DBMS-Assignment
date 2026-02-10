@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, distinct
 
 from app.models.enrollment import Enrollment
 from app.models.teaching import Teaching
@@ -50,11 +50,14 @@ def get_student_counts(db: Session, student_user_id: int):
 
 def get_instructor_counts(db: Session, instructor_user_id: int):
 
-    courses = db.query(func.count()).filter(
+    # Count total courses taught by this instructor
+    courses = db.query(func.count(Teaching.course_id)).filter(
         Teaching.instructor_user_id == instructor_user_id
     ).scalar()
 
-    students = db.query(func.count()).join(
+    # Count distinct students enrolled in courses taught by this instructor
+    # (avoid counting same student multiple times if they take multiple courses)
+    students = db.query(func.count(distinct(Enrollment.student_user_id))).join(
         Teaching,
         Teaching.course_id == Enrollment.course_id
     ).filter(

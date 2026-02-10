@@ -11,6 +11,12 @@ from app.services.statistics_service import (
     update_student_statistics_service,
     update_instructor_statistics_service
 )
+from app.services.statistics_service import (
+    recompute_all_students_service,
+    recompute_all_instructors_service,
+    recompute_all_courses_service,
+    recompute_platform_service
+)
 
 # Router Config
 
@@ -99,3 +105,28 @@ def recompute_instructor_stats(
         db,
         instructor_user_id
     )
+
+
+# ---------------- Batch Recompute Endpoints ----------------
+@router.post('/recompute/students')
+def recompute_all_students(db: Session = Depends(get_db)):
+    """Recompute stats for all students (only where Student record exists)."""
+    return recompute_all_students_service(db)
+
+
+@router.post('/recompute/instructors')
+def recompute_all_instructors(db: Session = Depends(get_db)):
+    """Recompute stats for all instructors (only where Instructor record exists)."""
+    return recompute_all_instructors_service(db)
+
+
+@router.post('/recompute/courses')
+def recompute_all_courses(db: Session = Depends(get_db)):
+    """Recompute stats for all courses."""
+    return recompute_all_courses_service(db)
+
+
+@router.post('/recompute/platform')
+def recompute_platform(db: Session = Depends(get_db)):
+    """Recompute statistics for the entire platform (students, instructors, courses)."""
+    return recompute_platform_service(db)

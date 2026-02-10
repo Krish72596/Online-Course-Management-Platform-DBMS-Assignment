@@ -46,7 +46,7 @@ class CourseCreate(BaseModel):
     start_date: Optional[date] = None
     duration: Optional[int] = None
     university_id: Optional[int] = None
-    quiz_answer_key: Optional[str] = Field(None, max_length=15)
+    quiz_answer_key: Optional[str] = Field(None)
 
 
 class CourseResponse(BaseModel):
@@ -64,6 +64,18 @@ class CourseResponse(BaseModel):
         orm_mode = True
 
 
+# Quiz Question Schema for course creation
+class QuizQuestionCreate(BaseModel):
+    question_text: str
+    question_type: str = "multiple_choice"
+    option_a: Optional[str] = None
+    option_b: Optional[str] = None
+    option_c: Optional[str] = None
+    option_d: Optional[str] = None
+    correct_answer: str
+    explanation: Optional[str] = None
+
+
 # Instructor Course Creation Schema
 class InstructorCourseCreate(BaseModel):
     title: str = Field(..., max_length=150)
@@ -74,8 +86,9 @@ class InstructorCourseCreate(BaseModel):
     start_date: Optional[date] = None
     duration: Optional[int] = None
     university_id: Optional[int] = None
-    quiz_answer_key: Optional[str] = Field(None, max_length=15)
+    quiz_answer_key: Optional[str] = Field(None)
     topics: List[TopicCreate] = Field(default_factory=list)
+    quiz_questions: List[QuizQuestionCreate] = Field(default_factory=list)
 
     class Config:
         orm_mode = True

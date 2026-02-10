@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Analyst Dashboard - Course Management</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar h1 {
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .navbar-right {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .analyst-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .logout-btn {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.6rem 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.25);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 3px solid #ddd;
+            overflow-x: auto;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 1rem 1.8rem;
+            font-size: 1rem;
+            cursor: pointer;
+            border-bottom: 4px solid transparent;
+            transition: all 0.3s;
+            color: #666;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .tab-button.active {
+            color: #2c3e50;
+            border-bottom-color: #2c3e50;
+        }
+
+        .tab-button:hover {
+            color: #2c3e50;
+            background: rgba(44, 62, 80, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Overview Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 5px solid #2c3e50;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        .stat-card.blue {
+            border-left-color: #3498db;
+        }
+
+        .stat-card.green {
+            border-left-color: #27ae60;
+        }
+
+        .stat-card.orange {
+            border-left-color: #e67e22;
+        }
+
+        .stat-card.purple {
+            border-left-color: #8e44ad;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-subtitle {
+            font-size: 0.85rem;
+            color: #95a5a6;
+        }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1.8rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            max-height: 420px;
+            overflow: hidden;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        /* Tables Section */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1.8rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        .table-title {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #ecf0f1;
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #ecf0f1;
+            font-size: 0.95rem;
+            color: #555;
+        }
+
+        tbody tr {
+            transition: all 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .clickable-row {
+            cursor: pointer;
+        }
+
+        .clickable-row:hover {
+            background: #eef5ff;
+            box-shadow: inset 3px 0 0 #2c3e50;
+        }
+
+        /* Badges and Status */
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-primary {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .badge-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .badge-danger {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .badge-info {
+            background: #e0f2f1;
+            color: #00796b;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #ecf0f1;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2c3e50, #34495e);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 1.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+        }
+
+        .modal-header h2 {
+            font-size: 1.4rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .close-btn:hover {
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .modal-section {
+            margin-bottom: 2rem;
+        }
+
+        .modal-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-section h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 0.8rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #2c3e50;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+
+        .info-value {
+            font-size: 1.1rem;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .spinner {
+            border: 4px solid #ecf0f1;
+            border-top: 4px solid #2c3e50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #7f8c8d;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-text {
+            font-size: 1.1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+            }
+
+            .navbar h1 {
+                font-size: 1.3rem;
+            }
+
+            .navbar-right {
+                gap: 1rem;
+            }
+
+            .tabs {
+                gap: 0.5rem;
+            }
+
+            .tab-button {
+                padding: 0.8rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                margin: 1rem auto;
+                padding: 0 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <div class="navbar">
+        <h1>📊 Data Analytics Dashboard</h1>
+        <div class="navbar-right">
+            <span class="analyst-badge">👤 Data Analyst</span>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="overview">
+                📈 Overview
+            </button>
+            <button class="tab-button" data-tab="courses">
+                📚 Courses
+            </button>
+            <button class="tab-button" data-tab="students">
+                👥 Students
+            </button>
+            <button class="tab-button" data-tab="instructors">
+                🎓 Instructors
+            </button>
+        </div>
+
+        <!-- OVERVIEW TAB -->
+        <div id="overview" class="tab-content active">
+            <!-- Platform Statistics -->
+            <div class="stats-grid" id="platformStats">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading platform data...
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Courses Distribution</div>
+                        <canvas id="coursesChart" height="300"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Enrollment Status</div>
+                        <canvas id="enrollmentChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- COURSES TAB -->
+        <div id="courses" class="tab-content">
+            <div class="table-container">
+                <div class="table-title">All Courses Analytics</div>
+                <table id="coursesTable">
+                    <thead>
+                        <tr>
+                            <th>Course Title</th>
+                            <th>Category</th>
+                            <th>Total Enrollments</th>
+                            <th>Completed</th>
+                            <th>Completion Rate</th>
+                            <th>Avg Rating</th>
+                            <th>Instructors</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coursesTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 2rem;">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Loading courses...
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- STUDENTS TAB -->
+        <div id="students" class="tab-content">
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div class="chart-title">Student Progress Distribution</div>
+                    <canvas id="studentProgressChart" height="300"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Top Students by Enrollment</div>
+                    <canvas id="topStudentsChart" height="300"></canvas>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-title">All Students</div>
+                <table id="studentsTable">
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Email</th>
+                            <th>Total Courses</th>
+                            <th>Completed</th>
+                            <th>Active</th>
+                            <th>Avg Rating</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 2rem;">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Loading students...
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- INSTRUCTORS TAB -->
+        <div id="instructors" class="tab-content">
+            <div class="table-container">
+                <div class="table-title">All Instructors</div>
+                <table id="instructorsTable">
+                    <thead>
+                        <tr>
+                            <th>Instructor Name</th>
+                            <th>Email</th>
+                            <th>Courses Taught</th>
+                            <th>Total Students</th>
+                            <th>Avg Completion Rate</th>
+                            <th>Last Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody id="instructorsTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 2rem;">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Loading instructors...
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Profile Modal -->
+    <div id="studentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Student Profile</h2>
+                <button class="close-btn" onclick="closeStudentModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="studentModalBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Details Modal -->
+    <div id="courseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Course Details</h2>
+                <button class="close-btn" onclick="closeCourseModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="courseModalBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        const token = localStorage.getItem('token');
+        let platformData = null;
+        let coursesData = null;
+        let studentsData = null;
+        let instructorsData = null;
+
+        // Chart instances
+        let coursesChartInstance = null;
+        let enrollmentChartInstance = null;
+        let studentProgressChartInstance = null;
+        let topStudentsChartInstance = null;
+
+        // Tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const tabName = this.dataset.tab;
+                switchTab(tabName);
+            });
+        });
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+            // Load data for the tab
+            if (tabName === 'overview') {
+                if (!platformData) loadPlatformOverview();
+            } else if (tabName === 'courses') {
+                if (!coursesData) loadCoursesAnalytics();
+            } else if (tabName === 'students') {
+                if (!studentsData) loadStudentsAnalytics();
+            } else if (tabName === 'instructors') {
+                if (!instructorsData) loadInstructorsAnalytics();
+            }
+        }
+
+        // API Calls
+        async function loadPlatformOverview() {
+            try {
+                const backendUrl = '{{ backend_url }}';
+                const response = await fetch(`${backendUrl}/analyst/overview`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load platform overview');
+                
+                platformData = await response.json();
+                renderPlatformStats();
+                renderOverviewCharts();
+            } catch (error) {
+                console.error('Error loading platform overview:', error);
+                document.getElementById('platformStats').innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Failed to load data</p></div>';
+            }
+        }
+
+        async function loadCoursesAnalytics() {
+            try {
+                const backendUrl = '{{ backend_url }}';
+                const response = await fetch(`${backendUrl}/analyst/courses/analytics`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load courses analytics');
+                
+                coursesData = await response.json();
+                renderCoursesTable();
+            } catch (error) {
+                console.error('Error loading courses analytics:', error);
+                document.getElementById('coursesTableBody').innerHTML = 
+                    '<tr><td colspan="8"><div class="empty-state">Failed to load courses</div></td></tr>';
+            }
+        }
+
+        async function loadStudentsAnalytics() {
+            try {
+                const backendUrl = '{{ backend_url }}';
+                const response = await fetch(`${backendUrl}/analyst/students/analytics`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load students analytics');
+                
+                studentsData = await response.json();
+                renderStudentsTable();
+                renderStudentCharts();
+            } catch (error) {
+                console.error('Error loading students analytics:', error);
+                document.getElementById('studentsTableBody').innerHTML = 
+                    '<tr><td colspan="7"><div class="empty-state">Failed to load students</div></td></tr>';
+            }
+        }
+
+        async function loadInstructorsAnalytics() {
+            try {
+                const backendUrl = '{{ backend_url }}';
+                const response = await fetch(`${backendUrl}/analyst/instructors/analytics`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load instructors analytics');
+                
+                instructorsData = await response.json();
+                renderInstructorsTable();
+            } catch (error) {
+                console.error('Error loading instructors analytics:', error);
+                document.getElementById('instructorsTableBody').innerHTML = 
+                    '<tr><td colspan="6"><div class="empty-state">Failed to load instructors</div></td></tr>';
+            }
+        }
+
+        // Render Functions
+        function renderPlatformStats() {
+            const data = platformData;
+            const html = `
+                <div class="stat-card blue">
+                    <div class="stat-label">📚 Total Courses</div>
+                    <div class="stat-value">${data.total_courses}</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-label">👥 Total Students</div>
+                    <div class="stat-value">${data.total_students}</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-label">🎓 Total Instructors</div>
+                    <div class="stat-value">${data.total_instructors}</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-label">📝 Total Enrollments</div>
+                    <div class="stat-value">${data.total_enrollments}</div>
+                </div>
+                <div class="stat-card" style="border-left-color: #16a085;">
+                    <div class="stat-label">✅ Completed</div>
+                    <div class="stat-value">${data.completed_enrollments}</div>
+                    <div class="stat-subtitle">${data.overall_completion_rate}% completion rate</div>
+                </div>
+                <div class="stat-card" style="border-left-color: #c0392b;">
+                    <div class="stat-label">🔄 Active Now</div>
+                    <div class="stat-value">${data.active_enrollments}</div>
+                    <div class="stat-subtitle">Avg ${data.average_enrollments_per_course} per course</div>
+                </div>
+            `;
+            document.getElementById('platformStats').innerHTML = html;
+        }
+
+        function renderOverviewCharts() {
+            // Courses Chart
+            const ctx1 = document.getElementById('coursesChart').getContext('2d');
+            if (coursesChartInstance) coursesChartInstance.destroy();
+            
+            const coursesByCategory = {};
+            if (coursesData) {
+                coursesData.courses.forEach(course => {
+                    coursesByCategory[course.category] = (coursesByCategory[course.category] || 0) + 1;
+                });
+            }
+
+            coursesChartInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(coursesByCategory),
+                    datasets: [{
+                        data: Object.values(coursesByCategory),
+                        backgroundColor: [
+                            '#3498db', '#e74c3c', '#f39c12', '#2ecc71', 
+                            '#9b59b6', '#1abc9c', '#e67e22', '#34495e'
+                        ]
+                    }]
+                },
+                options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Enrollment Status Chart
+            const ctx2 = document.getElementById('enrollmentChart').getContext('2d');
+            if (enrollmentChartInstance) enrollmentChartInstance.destroy();
+
+            enrollmentChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Completed', 'Active'],
+                    datasets: [{
+                        label: 'Enrollments',
+                        data: [platformData.completed_enrollments, platformData.active_enrollments],
+                        backgroundColor: ['#27ae60', '#e74c3c'],
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function renderCoursesTable() {
+            const courses = coursesData.courses || [];
+            
+            if (courses.length === 0) {
+                document.getElementById('coursesTableBody').innerHTML = 
+                    '<tr><td colspan="8"><div class="empty-state">No courses found</div></td></tr>';
+                return;
+            }
+
+            const html = courses.map(course => `
+                <tr class="clickable-row" onclick="loadCourseDetails(${course.course_id})">
+                    <td><strong>${course.title}</strong></td>
+                    <td><span class="badge badge-primary">${course.category}</span></td>
+                    <td>${course.total_enrollments}</td>
+                    <td>${course.completed_enrollments}</td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${course.completion_rate}%"></div>
+                        </div>
+                        ${course.completion_rate}%
+                    </td>
+                    <td>${course.average_rating.toFixed(1)} ⭐</td>
+                    <td>${course.total_instructors}</td>
+                    <td><button class="btn-view" style="padding: 0.4rem 0.8rem; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">View</button></td>
+                </tr>
+            `).join('');
+
+            document.getElementById('coursesTableBody').innerHTML = html;
+        }
+
+        function renderStudentsTable() {
+            const students = studentsData.students || [];
+            
+            if (students.length === 0) {
+                document.getElementById('studentsTableBody').innerHTML = 
+                    '<tr><td colspan="7"><div class="empty-state">No students found</div></td></tr>';
+                return;
+            }
+
+            const html = students.map(student => `
+                <tr class="clickable-row" onclick="loadStudentProfile(${student.student_user_id})">
+                    <td><strong>${student.name}</strong></td>
+                    <td>${student.email}</td>
+                    <td>${student.total_enrollments}</td>
+                    <td><span class="badge badge-success">${student.completed_courses}</span></td>
+                    <td><span class="badge badge-warning">${student.active_courses}</span></td>
+                    <td>${student.average_rating.toFixed(1)} ⭐</td>
+                    <td><button class="btn-view" style="padding: 0.4rem 0.8rem; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">Profile</button></td>
+                </tr>
+            `).join('');
+
+            document.getElementById('studentsTableBody').innerHTML = html;
+        }
+
+        function renderStudentCharts() {
+            const students = studentsData.students || [];
+            
+            // Student Progress Chart
+            const progressBuckets = {
+                'No Courses': 0,
+                'Beginner (1-2)': 0,
+                'Intermediate (3-5)': 0,
+                'Advanced (6+)': 0
+            };
+
+            students.forEach(student => {
+                if (student.total_enrollments === 0) progressBuckets['No Courses']++;
+                else if (student.total_enrollments <= 2) progressBuckets['Beginner (1-2)']++;
+                else if (student.total_enrollments <= 5) progressBuckets['Intermediate (3-5)']++;
+                else progressBuckets['Advanced (6+)']++;
+            });
+
+            const ctx1 = document.getElementById('studentProgressChart').getContext('2d');
+            if (studentProgressChartInstance) studentProgressChartInstance.destroy();
+
+            studentProgressChartInstance = new Chart(ctx1, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(progressBuckets),
+                    datasets: [{
+                        data: Object.values(progressBuckets),
+                        backgroundColor: ['#95a5a6', '#f39c12', '#3498db', '#2ecc71']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Top Students Chart
+            const topStudents = students.slice(0, 5);
+            const ctx2 = document.getElementById('topStudentsChart').getContext('2d');
+            if (topStudentsChartInstance) topStudentsChartInstance.destroy();
+
+            topStudentsChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: topStudents.map(s => s.name.substring(0, 15)),
+                    datasets: [{
+                        label: 'Course Count',
+                        data: topStudents.map(s => s.total_enrollments),
+                        backgroundColor: '#3498db',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function renderInstructorsTable() {
+            const instructors = instructorsData.instructors || [];
+            
+            if (instructors.length === 0) {
+                document.getElementById('instructorsTableBody').innerHTML = 
+                    '<tr><td colspan="6"><div class="empty-state">No instructors found</div></td></tr>';
+                return;
+            }
+
+            const html = instructors.map(instructor => `
+                <tr>
+                    <td><strong>${instructor.name}</strong></td>
+                    <td>${instructor.email}</td>
+                    <td><span class="badge badge-info">${instructor.total_courses_taught}</span></td>
+                    <td>${instructor.total_students}</td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${instructor.average_course_completion_rate}%"></div>
+                        </div>
+                        ${instructor.average_course_completion_rate}%
+                    </td>
+                    <td>${instructor.last_stats_update ? new Date(instructor.last_stats_update).toLocaleDateString() : 'N/A'}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('instructorsTableBody').innerHTML = html;
+        }
+
+        // Modal Functions
+        async function loadStudentProfile(studentId) {
+            try {
+                const student = studentsData.students.find(s => s.student_user_id === studentId);
+                if (!student) return;
+
+                const backendUrl = '{{ backend_url }}';
+                const response = await fetch(`${backendUrl}/analyst/students/analytics`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load student data');
+
+                const html = `
+                    <div class="modal-section">
+                        <h3>Personal Information</h3>
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <div class="info-label">Name</div>
+                                <div class="info-value">${student.name}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Email</div>
+                                <div class="info-value">${student.email}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Total Courses</div>
+                                <div class="info-value">${student.total_enrollments}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Completion Rate</div>
+                                <div class="info-value">${student.completed_courses}/${student.total_enrollments}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>Academic Statistics</h3>
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <div class="info-label">Completed Courses</div>
+                                <div class="info-value">${student.completed_courses}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Active Courses</div>
+                                <div class="info-value">${student.active_courses}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Average Rating</div>
+                                <div class="info-value">${student.average_rating.toFixed(2)} ⭐</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Last Updated</div>
+                                <div class="info-value">${student.last_stats_update ? new Date(student.last_stats_update).toLocaleDateString() : 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('studentModalBody').innerHTML = html;
+                document.getElementById('studentModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading student profile:', error);
+                alert('Failed to load student profile');
+            }
+        }
+
+        async function loadCourseDetails(courseId) {
+            try {
+                const backendUrl = '{{ backend_url }}';
+                const response = await fetch(`${backendUrl}/analyst/courses/${courseId}/detailed`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load course details');
+
+                const course = await response.json();
+
+                let instructorsHtml = course.instructors.map(inst => `
+                    <div style="background: #f8f9fa; padding: 0.8rem; border-radius: 5px; margin-bottom: 0.5rem;">
+                        <strong>${inst.instructor_name}</strong> | ${inst.instructor_email}
+                        <br>
+                        <small>Role: ${inst.role_in_course || 'N/A'}</small>
+                    </div>
+                `).join('');
+
+                let studentsHtml = course.students.slice(0, 10).map(student => `
+                    <tr>
+                        <td>${student.student_name}</td>
+                        <td>${student.completion_status}</td>
+                        <td>${student.rating ? student.rating + ' ⭐' : 'N/A'}</td>
+                        <td>${student.grade || 'N/A'}</td>
+                    </tr>
+                `).join('');
+
+                if (course.students.length > 10) {
+                    studentsHtml += `<tr><td colspan="4" style="text-align: center;"><em>... and ${course.students.length - 10} more students</em></td></tr>`;
+                }
+
+                const html = `
+                    <div class="modal-section">
+                        <h3>Course Information</h3>
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <div class="info-label">Title</div>
+                                <div class="info-value">${course.title}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Category</div>
+                                <div class="info-value">${course.category}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Level</div>
+                                <div class="info-value">${course.level}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Duration</div>
+                                <div class="info-value">${course.duration || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>Enrollment Statistics</h3>
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <div class="info-label">Total Enrollments</div>
+                                <div class="info-value">${course.total_enrollments}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Completed</div>
+                                <div class="info-value">${course.completed_enrollments}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Active</div>
+                                <div class="info-value">${course.active_enrollments}</div>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-label">Completion Rate</div>
+                                <div class="info-value">${course.completion_rate}%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>Instructors (${course.instructors.length})</h3>
+                        ${instructorsHtml || '<p>No instructors assigned</p>'}
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>Top 10 Students</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #ecf0f1;">
+                                    <th style="padding: 0.8rem; text-align: left;">Name</th>
+                                    <th style="padding: 0.8rem; text-align: left;">Status</th>
+                                    <th style="padding: 0.8rem; text-align: left;">Rating</th>
+                                    <th style="padding: 0.8rem; text-align: left;">Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${studentsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                document.getElementById('courseModalBody').innerHTML = html;
+                document.getElementById('courseModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading course details:', error);
+                alert('Failed to load course details');
+            }
+        }
+
+        function closeStudentModal() {
+            document.getElementById('studentModal').classList.remove('show');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('courseModal').classList.remove('show');
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            const studentModal = document.getElementById('studentModal');
+            const courseModal = document.getElementById('courseModal');
+            
+            if (event.target === studentModal) studentModal.classList.remove('show');
+            if (event.target === courseModal) courseModal.classList.remove('show');
+        });
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            loadPlatformOverview();
+            loadCoursesAnalytics();
+        });
+    </script>
+</body>
+</html>

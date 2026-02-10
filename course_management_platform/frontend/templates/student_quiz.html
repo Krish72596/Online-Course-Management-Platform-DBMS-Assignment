@@ -1,0 +1,394 @@
+<!-- Student Quiz Component -->
+<!-- This component displays quizzes dynamically from the database for students -->
+
+<div id="quiz-container" class="quiz-student-container" style="display: none;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 30px;">
+        <h2 style="margin: 0 0 10px 0;">Final Assessment</h2>
+        <p style="margin: 0; opacity: 0.9;">Complete the quiz to assess your understanding</p>
+    </div>
+
+    <div id="quiz-info" style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <div>
+                <div style="font-size: 12px; color: #666; text-transform: uppercase;">Questions</div>
+                <div style="font-size: 20px; font-weight: bold; color: #667eea;" id="question-count">0</div>
+            </div>
+            <div>
+                <div style="font-size: 12px; color: #666; text-transform: uppercase;">Passing Score</div>
+                <div style="font-size: 20px; font-weight: bold; color: #667eea;" id="passing-score">70%</div>
+            </div>
+            <div>
+                <div style="font-size: 12px; color: #666; text-transform: uppercase;">Max Attempts</div>
+                <div style="font-size: 20px; font-weight: bold; color: #667eea;" id="max-attempts">1</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Form -->
+    <form id="quiz-form" style="display: none;">
+        <div id="questions-container"></div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0; display: flex; gap: 10px;">
+            <button type="button" class="btn btn-secondary" onclick="resetQuiz()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">
+                Clear Answers
+            </button>
+            <button type="submit" class="btn btn-primary" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">
+                Submit Quiz
+            </button>
+        </div>
+    </form>
+
+    <!-- No Quiz Message -->
+    <div id="no-quiz-message" style="text-align: center; padding: 40px; color: #666;">
+        <p style="font-size: 18px;">No quiz available for this course yet.</p>
+    </div>
+
+    <!-- Results Display -->
+    <div id="quiz-results" style="display: none;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px;">
+            <h3 style="margin-top: 0;">Quiz Results</h3>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 40px; font-weight: bold; color: #667eea; margin-bottom: 10px;" id="result-score">0%</div>
+                    <div style="font-size: 18px; color: #666; margin-bottom: 5px;">
+                        <strong id="result-text">You need to improve</strong>
+                    </div>
+                    <div style="font-size: 14px; color: #999;">
+                        <span id="result-details">0 out of 0 questions correct</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Answer Review -->
+            <div id="answer-review" style="margin-bottom: 20px;"></div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn btn-primary" onclick="retakeQuiz()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Retake Quiz
+                </button>
+                <a href="javascript:history.back()" class="btn btn-secondary" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; text-decoration: none;">
+                    Back to Course
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .quiz-student-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .question-item {
+        background-color: white;
+        padding: 25px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .question-item h4 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 16px;
+    }
+
+    .question-options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .question-option {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        border: 2px solid #f0f0f0;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .question-option:hover {
+        background-color: #f8f9fa;
+        border-color: #667eea;
+    }
+
+    .question-option input[type="radio"],
+    .question-option input[type="checkbox"] {
+        margin-right: 12px;
+        cursor: pointer;
+    }
+
+    .question-option.selected {
+        background-color: #f0f3ff;
+        border-color: #667eea;
+    }
+
+    .result-item {
+        background-color: white;
+        padding: 15px;
+        margin-bottom: 12px;
+        border-radius: 4px;
+        border-left: 4px solid #ddd;
+    }
+
+    .result-item.correct {
+        border-left-color: #10b981;
+        background-color: #f0fdf4;
+    }
+
+    .result-item.incorrect {
+        border-left-color: #ef4444;
+        background-color: #fef2f2;
+    }
+
+    .result-item-question {
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #333;
+    }
+
+    .result-item-answer {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    .result-item-correct-answer {
+        font-size: 14px;
+        color: #10b981;
+        font-weight: 500;
+    }
+</style>
+
+<script>
+    let currentQuiz = null;
+    let currentCourseId = null;
+    let studentAnswers = {};
+
+    /**
+     * Load and display quiz for a course
+     * Call this from the student dashboard/course page
+     * @param {number} courseId - The course ID
+     */
+    async function loadQuizForCourse(courseId) {
+        currentCourseId = courseId;
+        
+        try {
+            // Get auth token if user is logged in
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            
+            // Fetch quiz from backend
+            const response = await fetch(`/api/quizzes/course/${courseId}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+
+            if (response.status === 404) {
+                document.getElementById('no-quiz-message').style.display = 'block';
+                document.getElementById('quiz-form').style.display = 'none';
+                document.getElementById('quiz-info').style.display = 'none';
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error('Failed to load quiz');
+            }
+
+            const quizData = await response.json();
+            currentQuiz = quizData;
+            
+            // Display quiz
+            displayQuiz(quizData);
+            document.getElementById('quiz-container').style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error loading quiz:', error);
+            document.getElementById('no-quiz-message').style.display = 'block';
+            document.getElementById('quiz-form').style.display = 'none';
+        }
+    }
+
+    function displayQuiz(quizData) {
+        const questionsContainer = document.getElementById('questions-container');
+        const form = document.getElementById('quiz-form');
+        const info = document.getElementById('quiz-info');
+
+        // Update quiz info
+        document.getElementById('question-count').textContent = quizData.questions.length;
+        document.getElementById('passing-score').textContent = quizData.passing_score + '%';
+        document.getElementById('max-attempts').textContent = quizData.max_attempts;
+        info.style.display = 'block';
+
+        // Clear previous questions
+        questionsContainer.innerHTML = '';
+
+        // Add each question
+        quizData.questions.forEach((question, index) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question-item';
+            
+            let optionsHTML = '';
+            
+            if (question.question_type === 'true_false') {
+                optionsHTML = `
+                    <label class="question-option" onclick="selectOption(${question.question_id}, 'A', this)">
+                        <input type="radio" name="q${question.question_id}" value="A">
+                        <span>True</span>
+                    </label>
+                    <label class="question-option" onclick="selectOption(${question.question_id}, 'B', this)">
+                        <input type="radio" name="q${question.question_id}" value="B">
+                        <span>False</span>
+                    </label>
+                `;
+            } else {
+                optionsHTML = `
+                    <label class="question-option" onclick="selectOption(${question.question_id}, 'A', this)">
+                        <input type="radio" name="q${question.question_id}" value="A">
+                        <span>A) ${question.option_a}</span>
+                    </label>
+                    ${question.option_b ? `
+                    <label class="question-option" onclick="selectOption(${question.question_id}, 'B', this)">
+                        <input type="radio" name="q${question.question_id}" value="B">
+                        <span>B) ${question.option_b}</span>
+                    </label>
+                    ` : ''}
+                    ${question.option_c ? `
+                    <label class="question-option" onclick="selectOption(${question.question_id}, 'C', this)">
+                        <input type="radio" name="q${question.question_id}" value="C">
+                        <span>C) ${question.option_c}</span>
+                    </label>
+                    ` : ''}
+                    ${question.option_d ? `
+                    <label class="question-option" onclick="selectOption(${question.question_id}, 'D', this)">
+                        <input type="radio" name="q${question.question_id}" value="D">
+                        <span>D) ${question.option_d}</span>
+                    </label>
+                    ` : ''}
+                `;
+            }
+
+            questionDiv.innerHTML = `
+                <h4>Question ${index + 1}: ${question.question_text}</h4>
+                <div class="question-options">
+                    ${optionsHTML}
+                </div>
+            `;
+            
+            questionsContainer.appendChild(questionDiv);
+        });
+
+        form.style.display = 'block';
+        form.onsubmit = submitQuiz;
+        document.getElementById('no-quiz-message').style.display = 'none';
+    }
+
+    function selectOption(questionId, answer, element) {
+        // Store the answer
+        studentAnswers[questionId] = answer;
+        
+        // Update UI
+        const siblings = element.parentElement.querySelectorAll('.question-option');
+        siblings.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        // Check the radio button
+        element.querySelector('input[type="radio"]').checked = true;
+    }
+
+    function resetQuiz() {
+        studentAnswers = {};
+        document.querySelectorAll('input[type="radio"]').forEach(input => {
+            input.checked = false;
+        });
+        document.querySelectorAll('.question-option').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+    }
+
+    async function submitQuiz(e) {
+        e.preventDefault();
+
+        if (Object.keys(studentAnswers).length === 0) {
+            alert('Please answer at least one question');
+            return;
+        }
+
+        // Calculate score
+        let correctCount = 0;
+        currentQuiz.questions.forEach(question => {
+            if (studentAnswers[question.question_id] === question.correct_answer) {
+                correctCount++;
+            }
+        });
+
+        const totalQuestions = currentQuiz.questions.length;
+        const score = Math.round((correctCount / totalQuestions) * 100);
+        const passed = score >= currentQuiz.passing_score;
+
+        // Display results
+        displayResults(correctCount, totalQuestions, score, passed);
+    }
+
+    function displayResults(correctCount, totalQuestions, score, passed) {
+        document.getElementById('quiz-form').style.display = 'none';
+        document.getElementById('quiz-results').style.display = 'block';
+
+        // Update score display
+        document.getElementById('result-score').textContent = score + '%';
+        document.getElementById('result-text').textContent = passed ? '🎉 Congratulations!' : '📚 Keep Learning';
+        document.getElementById('result-details').innerHTML = `
+            ${correctCount} out of ${totalQuestions} questions correct
+            ${passed ? '<br><span style="color: #10b981; font-weight: 500;">✓ You passed the quiz!</span>' : '<br><span style="color: #ef4444; font-weight: 500;">✗ You need 70% to pass</span>'}
+        `;
+
+        // Show answer review
+        const reviewDiv = document.getElementById('answer-review');
+        reviewDiv.innerHTML = '<h4>Answer Review</h4>';
+
+        currentQuiz.questions.forEach(question => {
+            const studentAnswer = studentAnswers[question.question_id] || 'Not answered';
+            const isCorrect = studentAnswer === question.correct_answer;
+            
+            const resultItem = document.createElement('div');
+            resultItem.className = `result-item ${isCorrect ? 'correct' : 'incorrect'}`;
+            resultItem.innerHTML = `
+                <div class="result-item-question">
+                    ${isCorrect ? '✓' : '✗'} ${question.question_text}
+                </div>
+                <div class="result-item-answer">
+                    Your answer: <strong>${studentAnswer}</strong>
+                </div>
+                ${!isCorrect ? `
+                <div class="result-item-correct-answer">
+                    Correct answer: <strong>${question.correct_answer}</strong>
+                </div>
+                ${question.explanation ? `<div style="color: #666; font-size: 13px; margin-top: 5px;"><em>${question.explanation}</em></div>` : ''}
+                ` : ''}
+            `;
+            reviewDiv.appendChild(resultItem);
+        });
+    }
+
+    function retakeQuiz() {
+        studentAnswers = {};
+        document.getElementById('quiz-results').style.display = 'none';
+        document.getElementById('quiz-form').style.display = 'block';
+        resetQuiz();
+    }
+</script>
+
+<!-- Usage in HTML -->
+<!--
+<script>
+    // Call this when page loads with course ID
+    document.addEventListener('DOMContentLoaded', function() {
+        const courseId = parseInt(document.querySelector('[data-course-id]').dataset.courseId);
+        loadQuizForCourse(courseId);
+    });
+</script>
+-->

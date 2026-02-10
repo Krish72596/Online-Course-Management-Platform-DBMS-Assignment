@@ -5,14 +5,24 @@
 {% block extra_css %}
 <style>
     .quiz-container { max-width: 900px; margin: 20px auto; }
+    .loading-spinner { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 40px 20px; }
+    .spinner { width: 24px; height: 24px; border: 3px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-message { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; margin: 12px 0; }
     .question-card { background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: var(--shadow); }
     .question-number { font-weight: 700; margin-right: 8px; }
     .options { display: flex; gap: 12px; flex-wrap: wrap; margin-top:8px; }
-    .option { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer; }
-    .option input { margin-right: 6px; }
+    .option { padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s; }
+    .option:hover { background: var(--light-color); }
+    .option input { margin-right: 6px; cursor: pointer; }
+    .option input:checked { color: var(--primary-color); }
     .result-panel { background: white; padding: 18px; border-radius: 8px; box-shadow: var(--shadow); margin-top: 16px; }
     .rating-stars { font-size: 22px; color: #ffc107; cursor: pointer; }
     .review-actions { margin-top: 12px; display:flex; gap:8px; align-items:center; }
+    .alert { padding: 12px; border-radius: 6px; margin-bottom: 12px; }
+    .alert-success { background: #d1e7dd; color: #0a3622; border: 1px solid #badbcc; }
+    .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c2c7; }
+    .alert-warning { background: #fff3cd; color: #664d03; border: 1px solid #ffecb5; }
 </style>
 {% endblock %}
 
@@ -21,26 +31,17 @@
     <div class="card">
         <div class="card-body">
             <h3>{{ course.title }} — Final Assessment</h3>
-            <p class="text-muted">15 multiple-choice questions. Choose one option per question.</p>
+            <p class="text-muted" id="quizDescription">Loading quiz...</p>
 
             <form id="quizForm">
-                {% for i in range(1,16) %}
-                <div class="question-card">
-                    <div>
-                        <span class="question-number">Q{{ i }}.</span>
-                        <span>Placeholder question {{ i }} — Explain or test concept {{ i }}.</span>
-                    </div>
-                    <div class="options">
-                        <label class="option"><input type="radio" name="q{{ i }}" value="A"> A</label>
-                        <label class="option"><input type="radio" name="q{{ i }}" value="B"> B</label>
-                        <label class="option"><input type="radio" name="q{{ i }}" value="C"> C</label>
-                        <label class="option"><input type="radio" name="q{{ i }}" value="D"> D</label>
-                    </div>
+                <div id="quizLoading" class="loading-spinner">
+                    <div class="spinner"></div>
+                    <span>Loading quiz questions...</span>
                 </div>
-                {% endfor %}
+                <div id="quizContent" style="display: none;"></div>
 
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <button type="button" id="scoreBtn" class="btn btn-primary">Get Score</button>
+                <div id="formActions" style="display:none; display:flex; gap:10px; align-items:center; margin-top: 20px;">
+                    <button type="button" id="scoreBtn" class="btn btn-primary">Submit Quiz</button>
                     <div id="loadingScore" style="display:none;">Submitting...</div>
                 </div>
             </form>
@@ -48,7 +49,7 @@
             <div id="resultArea" style="display:none;" class="result-panel">
                 <h4 id="scoreText"></h4>
                 <p id="gradeText"></p>
-                <div id="completionBanner" style="display:none;" class="alert alert-success">Course completed successfully.</div>
+                <div id="completionBanner" style="display:none;" class="alert alert-success">✨ <strong>Course completed successfully!</strong> You can now review your answers below.</div>
 
                 <hr>
                 <h5>Rate & Review</h5>
@@ -75,99 +76,228 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/quiz.js') }}"></script>
 <script>
     const courseId = {{ course.course_id }};
     const userId = {{ current_user.user_id }};
     const token = '{{ auth_token }}';
-    const answerKey = '{{ course.quiz_answer_key or "" }}';
 
-    function mapScoreToGrade(scoreCount){
-        // scoreCount is 0..15
-        if (scoreCount >= 13) return 'A';
-        if (scoreCount >= 10) return 'B';
-        if (scoreCount >= 7) return 'C';
-        if (scoreCount >= 4) return 'D';
-        return 'F';
+    // Initialize quiz on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            await loadQuiz();
+        } catch (error) {
+            console.error('Failed to load quiz:', error);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = 'Failed to load quiz. Please refresh the page or contact support.';
+            document.getElementById('quizLoading').replaceWith(errorDiv);
+        }
+    });
+
+    /**
+     * Load quiz from backend API and render questions
+     */
+    async function loadQuiz() {
+        try {
+            // Fetch quiz for this course
+            const quizData = await window.QuizAPI.getQuizForCourse(courseId, token);
+            
+            if (!quizData || !quizData.questions) {
+                throw new Error('No quiz data received');
+            }
+
+            // Update description
+            document.getElementById('quizDescription').textContent = 
+                quizData.description || `${quizData.questions.length} questions. Choose one option per question.`;
+
+            // Render quiz questions dynamically
+            const quizContent = document.getElementById('quizContent');
+            renderQuizQuestions(quizData, quizContent);
+
+            // Show content and button
+            document.getElementById('quizLoading').style.display = 'none';
+            quizContent.style.display = 'block';
+            document.getElementById('formActions').style.display = 'flex';
+
+            // Attach submit handler
+            attachSubmitHandler();
+
+        } catch (error) {
+            console.error('Error loading quiz:', error);
+            throw error;
+        }
     }
 
-    document.getElementById('scoreBtn').addEventListener('click', async () => {
-        // collect answers
-        const answers = [];
-        for (let i=1;i<=15;i++){
-            const el = document.querySelector(`input[name="q${i}"]:checked`);
-            if (!el){ alert('Please answer all questions before submitting'); return; }
-            answers.push(el.value);
-        }
-
-        // show local score (client-side validation for UX)
-        if (!answerKey || answerKey.length < 15){ alert('No answer key configured for this course'); return; }
-        let correct = 0;
-        for (let i=0;i<15;i++){
-            const expected = answerKey.charAt(i).toUpperCase();
-            if (answers[i] && answers[i].toUpperCase() === expected) correct++;
-        }
-        document.getElementById('scoreText').textContent = `You scored ${correct} / 15`;
-        const grade = mapScoreToGrade(correct);
-        document.getElementById('gradeText').textContent = `Grade: ${grade}`;
-        document.getElementById('resultArea').style.display='block';
-
-        // submit answers to backend (server validates and returns grade + completion)
-        document.getElementById('loadingScore').style.display='inline-block';
-        const resp = await fetch(`/api/progress/submit/${courseId}`,{
-            method:'POST', 
-            headers:{'Content-Type':'application/json'}, 
-            body: JSON.stringify({answers: answers})
-        });
-        document.getElementById('loadingScore').style.display='none';
-
-        if (resp.ok){
-            const data = await resp.json();
-            // server returns: score (%), grade (A-F), completion_status
-            if (data.score !== undefined) document.getElementById('scoreText').textContent = `You scored ${Math.round(data.score / (100/15))} / 15 (${data.score}%)`;
-            if (data.grade) document.getElementById('gradeText').textContent = `Grade: ${data.grade}`;
-            if (data.completion_status && data.completion_status.toLowerCase()==='completed'){
-                document.getElementById('completionBanner').style.display='block';
-            }
+    /**
+     * Attach submit button handler
+     */
+    function attachSubmitHandler() {
+        const scoreBtn = document.getElementById('scoreBtn');
+        if (scoreBtn) {
+            scoreBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                submitQuiz();
+            });
         } else {
+            console.warn('scoreBtn not found when attaching submit handler');
+        }
+    }
+
+    /**
+     * Submit quiz and display results
+     */
+    async function submitQuiz() {
+        try {
+            // Validate all questions answered
+            const questions = window.quizQuestions || [];
+            
+            if (!questions || questions.length === 0) {
+                alert('No quiz questions loaded. Please refresh the page.');
+                return;
+            }
+
+            const answers = [];
+
+            for (let i = 0; i < questions.length; i++) {
+                const questionId = questions[i].question_id;
+                
+                if (!questionId) {
+                    alert(`Question ${i + 1}: Missing question ID`);
+                    return;
+                }
+
+                const selected = document.querySelector(`input[name="q${questionId}"]:checked`);
+                
+                if (!selected) {
+                    alert(`Please answer all questions before submitting (Q${i + 1} is unanswered)`);
+                    return;
+                }
+
+                const answer = selected.value;
+                if (!answer) {
+                    alert(`Question ${i + 1}: Invalid answer selected`);
+                    return;
+                }
+
+                answers.push(answer);
+            }
+
+            // Show loading state
+            document.getElementById('loadingScore').style.display = 'inline-block';
+            document.getElementById('scoreBtn').disabled = true;
+
+            // Grade the quiz
+            const gradingResult = gradeQuiz(answers, questions);
+
+            // Display results
+            const resultArea = document.getElementById('resultArea');
+            displayQuizResults(gradingResult, resultArea);
+            resultArea.style.display = 'block';
+
+            // Scroll to results
+            resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // Submit to backend for record-keeping
+            await submitToBackend(courseId, answers, gradingResult);
+
+            // Setup rating stars
+            setupRatingStars();
+
+        } catch (error) {
+            console.error('Error submitting quiz:', error);
+            console.error('Error stack:', error.stack);
+            alert('Failed to submit quiz: ' + (error.message || 'Unknown error'));
+        } finally {
+            document.getElementById('loadingScore').style.display = 'none';
+            document.getElementById('scoreBtn').disabled = false;
+        }
+    }
+
+    /**
+     * Submit quiz results to backend for tracking
+     */
+    async function submitToBackend(courseId, answers, gradingResult) {
+        try {
+            const response = await fetch(`/api/progress/submit/${courseId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    answers: answers,
+                    score: gradingResult.percentage,
+                    grade: mapScoreToGrade(gradingResult.correctCount),
+                    passed: gradingResult.passed
+                })
+            });
+
+            if (!response.ok) {
+                console.warn('Failed to submit to backend:', response.status);
+            }
+        } catch (error) {
+            console.warn('Could not submit quiz to backend:', error);
+            // Don't fail UX if backend submission fails
+        }
+    }
+
+    /**
+     * Setup rating stars interaction
+     */
+    function setupRatingStars() {
+        let selectedRating = 0;
+        
+        const starNodes = document.querySelectorAll('#stars .rating-stars') || [];
+        starNodes.forEach(star => {
+            star.addEventListener('click', () => {
+                selectedRating = parseInt(star.getAttribute('data-value'));
+                document.querySelectorAll('#stars .rating-stars').forEach((s, idx) => {
+                    s.textContent = idx < selectedRating ? '★' : '☆';
+                });
+            });
+        });
+
+        const submitReviewBtn = document.getElementById('submitReviewBtn');
+        if (submitReviewBtn) {
+            submitReviewBtn.addEventListener('click', async () => {
+            if (selectedRating <= 0) {
+                document.getElementById('reviewMsg').textContent = 'Please select a rating';
+                return;
+            }
+
+            const reviewText = document.getElementById('reviewText').value || '';
+            const isPublic = document.getElementById('isPublic').checked;
+
             try {
-                const errData = await resp.json();
-                console.error('Assessment submission error:', errData);
-                alert(`Failed to submit assessment: ${errData.error || 'Unknown error'}`);
-            } catch (e) {
-                console.error('Assessment submission failed:', e);
-                alert('Failed to submit assessment - please check the console for details');
+                const response = await fetch(`/api/progress/rate/${courseId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        rating: selectedRating,
+                        review_text: reviewText,
+                        is_public: isPublic
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('reviewMsg').innerHTML = 
+                        '<span style="color: #28a745;">✓ Thank you — your review was submitted.</span>';
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    document.getElementById('reviewMsg').innerHTML = 
+                        `<span style="color: #dc3545;">Failed to submit review: ${errorData.error || 'Unknown error'}</span>`;
+                }
+            } catch (error) {
+                console.error('Error submitting review:', error);
+                document.getElementById('reviewMsg').innerHTML = 
+                    `<span style="color: #dc3545;">Failed to submit review. Please try again.</span>`;
             }
-        }
-    });
-
-    // rating stars
-    let selectedRating = 0;
-    document.querySelectorAll('#stars .rating-stars').forEach(s => {
-        s.addEventListener('click', ()=>{
-            selectedRating = parseInt(s.getAttribute('data-value'));
-            document.querySelectorAll('#stars .rating-stars').forEach(x => x.textContent = '☆');
-            for (let i=0;i<selectedRating;i++) document.querySelectorAll('#stars .rating-stars')[i].textContent = '★';
-        });
-    });
-
-    document.getElementById('submitReviewBtn').addEventListener('click', async ()=>{
-        if (selectedRating <=0){ document.getElementById('reviewMsg').textContent='Please select a rating'; return; }
-        const reviewText = document.getElementById('reviewText').value || '';
-        const isPublic = document.getElementById('isPublic').checked;
-
-        // POST to frontend API (include is_public flag)
-        const resp = await fetch(`/api/progress/rate/${courseId}`,{
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({rating:selectedRating, review_text: reviewText, is_public: isPublic})
-        });
-
-        if (resp.ok){
-            document.getElementById('reviewMsg').textContent = 'Thank you — your review was submitted.';
+            });
         } else {
-            const errData = await resp.json().catch(() => ({}));
-            const errMsg = errData.error || `Server error: ${resp.status}`;
-            console.error('Review submission failed:', errMsg);
-            document.getElementById('reviewMsg').textContent = `Failed to submit review: ${errMsg}`;
+            console.warn('submitReviewBtn not found when setting up rating stars');
         }
-    });
+    }
 </script>
 {% endblock %}

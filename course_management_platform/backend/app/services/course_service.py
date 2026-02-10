@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.repositories import course_repo
+from app.repositories import quiz_repo
 
 # UNIVERSITY SERVICES
 def create_university_service(db: Session, payload):
@@ -61,8 +62,8 @@ def create_instructor_course_service(db: Session, payload, instructor_user_id: i
                 detail="University not found"
             )
     
-    # Prepare course data - exclude topics and None values
-    course_data = payload.dict(exclude={'topics'}, exclude_none=True)
+    # Prepare course data - exclude topics and quiz_questions
+    course_data = payload.dict(exclude={'topics', 'quiz_questions'}, exclude_none=True)
     course_data['created_by'] = instructor_user_id
     course_data['approval_status'] = 'Pending'
     
@@ -81,6 +82,35 @@ def create_instructor_course_service(db: Session, payload, instructor_user_id: i
                 created_topic.topic_id,
                 None
             )
+    
+    # Create quiz and questions if provided
+    if payload.quiz_questions and len(payload.quiz_questions) > 0:
+        # Create a Quiz row
+        quiz_data = {
+            'title': 'Final Assessment',
+            'description': 'Final assessment quiz for ' + course.title,
+            'max_attempts': 1,
+            'passing_score': 70
+        }
+        quiz = quiz_repo.create_quiz(db, course.course_id, quiz_data)
+        
+        # Add all questions to the quiz
+        for question in payload.quiz_questions:
+            question_data = question.dict() if hasattr(question, 'dict') else question
+            quiz_repo.add_question(db, quiz.quiz_id, question_data)
+    
+    # Create "Final Assessment" topic for the quiz (if quiz exists)
+    if payload.quiz_questions and len(payload.quiz_questions) > 0:
+        final_assessment_topic = course_repo.create_topic(
+            db,
+            {'name': 'Final Assessment', 'description': 'Take the final quiz to complete the course'}
+        )
+        course_repo.map_topic_to_course(
+            db,
+            course.course_id,
+            final_assessment_topic.topic_id,
+            None
+        )
     
     return course
 
